@@ -6,8 +6,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.srv.BlockingConnectionHandler;
 import bgu.spl.net.srv.Connections;
-
-//WA ADDED
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.io.File;
@@ -60,11 +58,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     @Override
     public void process(byte[] message) {
-
-        short request = (short) (((short) (message[0] & 0xFF)) << 8 | (short) (message[1] & 0xFF));// convert the first
-                                                                                                   // bytes in
-        // the
-        // packet into number
+        //convert the first bytes in the packet into number
+        short request = (short) (((short) (message[0] & 0xFF)) << 8 | (short) (message[1] & 0xFF));
 
         switch (request) {
             case 1:// RRQ
@@ -131,7 +126,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     private void loginRequest(byte[] message) {
-        // find if this client already exist
+        // check if this client already exist
         if (logged) {
             byte errorNumber = 7;
             byte[] error = errorMessage("User already logged in", errorNumber);
@@ -140,8 +135,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         }
         String clientName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);// client name
 
-        // if the user not logged in, find if there is another user with the same name
-        // (i maded up the error number 9)
+        //If the user is not logged in, check if there is another user with the same name
         for (Map.Entry<Integer, String> entry : idsLogin.entrySet()) {
             if (entry.getValue().equals(clientName)) {// if the client name exist
                 byte errorNumber = 9;
@@ -163,7 +157,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         System.arraycopy(dataArray, 0, temp, 0, dataArray.length);
         dataArray = temp;
 
-        // insert the new packet into data
+        //Insert the new packet into the data array
         System.arraycopy(message, 6, dataArray, posInDataArray, message.length - 6);
         posInDataArray += message.length - 6;
 
@@ -205,9 +199,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     private void downloadRequest(byte[] message) {
-        String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);// the name of the file
-                                                                                             // that the client want to
-                                                                                             // download
+        //The name of the file that the client wants to download
+        String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
+                                                                                             
         if (!fileExist(fileName)) {// if the file doesn't exist
             byte errorNumber = 1;
             byte[] error = errorMessage("File not found", errorNumber);
@@ -231,15 +225,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             byte[] sizeInBytes = new byte[] { (byte) (fileBytesSize >> 8), (byte) (fileBytesSize & 0xff) };
             byte[] dataPacket = new byte[fileBytesSize + 6];// initialize new data packet
 
-            // this is for op code
+            //This is for OP code
             dataPacket[0] = 0;
             dataPacket[1] = 3;
 
-            // this is for data size
+            //This is for data size
             dataPacket[2] = sizeInBytes[0];
             dataPacket[3] = sizeInBytes[1];
 
-            // this is for block number
+            //This is for block number
             dataPacket[4] = 0;
             dataPacket[5] = 1;
             System.arraycopy(dataArray, 0, dataPacket, 6, fileBytesSize);// insert the data into the new packet
@@ -249,7 +243,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private void uploadRequest(byte[] message) {
         uploadedFileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-        if (fileExist(uploadedFileName)) {// if the file already exists, dont need to upload it
+        if (fileExist(uploadedFileName)) {// if the file already exists, do not need to upload it
             byte errorNumber = 5;
             byte[] error = errorMessage("File already exist", errorNumber);
             connections.send(this.connectionId, error);
@@ -262,7 +256,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private void deleteRequest(byte[] message) {
         String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-        if (!fileExist(fileName)) {// if the file doesn't exists we can't delete it
+        if (!fileExist(fileName)) {// if the file doesn't exist we can't delete it
             byte errorNumber = 1;
             byte[] error = errorMessage("File not found", errorNumber);
             connections.send(this.connectionId, error);
@@ -292,7 +286,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         try {
             List<byte[]> filesBytes = new ArrayList<>();// initialize list of byte arrays
 
-            // go over all files in Files directory
+            //Go over all files in Files directory
             Files.list(Paths.get(filesDirectory)).forEach(path -> {
                 if (Files.isRegularFile(path)) {
                     byte[] fileNameBytes = path.getFileName().toString().getBytes();// initialize byte array with the
@@ -311,7 +305,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             dataArray = new byte[totalSize];
             int currentPosition = 0;
 
-            // insert all the byte arrays into the data array
+            //Insert all the byte arrays into the data array
             for (byte[] fileBytes : filesBytes) {
                 System.arraycopy(fileBytes, 0, dataArray, currentPosition, fileBytes.length);
                 currentPosition += fileBytes.length;
@@ -331,15 +325,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             byte[] sizeInBytes = new byte[] { (byte) (allFilesBytesSize >> 8), (byte) (allFilesBytesSize & 0xff) };
             byte[] dataPacket = new byte[allFilesBytesSize + 6];// initialize new data packet
 
-            // this is for op code
+            //This is for opcode
             dataPacket[0] = 0;
             dataPacket[1] = 3;
 
-            // tis is for data size
+            // this is for data size
             dataPacket[2] = sizeInBytes[0];
             dataPacket[3] = sizeInBytes[1];
 
-            // this is for block number
+            //This is for block number
             dataPacket[4] = 0;
             dataPacket[5] = 1;
             System.arraycopy(dataArray, 0, dataPacket, 6, allFilesBytesSize);// copy the data into the new packet
@@ -362,7 +356,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     }
 
-    // methode to generate error message
+    // method to generate an error message
     private byte[] errorMessage(String error, byte errorNumber) {
         byte[] messageBytes = error.getBytes(StandardCharsets.UTF_8);
         byte[] errorArray = new byte[4 + messageBytes.length + 1];
@@ -375,12 +369,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         return errorArray;
     }
 
-    // method to ack the client that we get the curent data packet
+    // method to ack the client that we get the current data packet
     private byte[] acknowledgeTheClient(byte[] blockNumber) {
         return new byte[] { 0, 4, blockNumber[0], blockNumber[1] };
     }
 
-    // method that split data that bigger then 512 byte
+    // method that splits data that is bigger then 512 byte
     private void splitIntoManyPackets() {
         if (transferCompleted) {
             transferCompleted = false;
@@ -389,15 +383,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         int maxByteInMessage = 512;
         transferCompleted = false;
 
-        // decide if this is the last packet or not
+        //Decide if this is the last packet or not
         short chunkSize = (short) Math.min(dataArray.length - posInDataArray, maxByteInMessage);
         byte[] curentDataPacket = new byte[chunkSize + 6];// initialize new packet
 
-        // this is for op code
+        //This is for opcode
         curentDataPacket[0] = 0;
         curentDataPacket[1] = 3;
 
-        // this is for packet size
+        //This is for packet size
         byte[] dataSizeInBytes = new byte[] { (byte) (chunkSize >> 8), (byte) (chunkSize & 0xff) };
         curentDataPacket[2] = dataSizeInBytes[0];
         curentDataPacket[3] = dataSizeInBytes[1];
@@ -407,7 +401,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         curentDataPacket[4] = blockNumberArray[0];
         curentDataPacket[5] = blockNumberArray[1];
 
-        // copy 512 or less bytes from datta array to the packet that sent right now
+        // copy 512 or fewer bytes from data array to the packet that is sent right now
         System.arraycopy(dataArray, posInDataArray, curentDataPacket, 6, chunkSize);
 
         connections.send(this.connectionId, curentDataPacket);
@@ -443,13 +437,13 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         }
     }
 
-    // method to ack the client that the request accept
+    // method to ack the client that the request is accepted
     private byte[] succsesfulAck() {
         return new byte[] { 0, 4, 0, 0 };
     }
 
 
-    // method for check if specific file exists in File
+    // method for checking if specific file exists in File
     private boolean fileExist(String fileName) {
         return (new File(filesDirectory, fileName).exists());
     }
